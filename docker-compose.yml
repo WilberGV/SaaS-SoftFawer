@@ -1,0 +1,49 @@
+services:
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./frontend/.env.local
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # WhatsApp Gateway
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - BOT_ROUTER_URL=http://bots:8000/route
+    env_file:
+      - ./gateway/.env
+    volumes:
+      - gateway-sessions:/app/sessions
+    depends_on:
+      - bots
+    restart: unless-stopped
+
+  # Python Bot Router
+  bots:
+    build:
+      context: ./bots
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./.env
+    restart: unless-stopped
+
+volumes:
+  gateway-sessions:

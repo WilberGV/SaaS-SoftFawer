@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================
+    // HELPER FUNCTIONS
+    // ==========================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'admin' || getUserData().role == 'superadmin');
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && (getUserData().role == 'superadmin' || request.auth.token.email == 'wegvivas@gmail.com');
+    }
+
+    function isTenantAdmin(tenantId) {
+      return isAuthenticated() && 
+             (getUserData().tenantId == tenantId ||
+              isSuperAdmin() || 
+              get(/databases/$(database)/documents/tenants/$(tenantId)).data.adminEmail == request.auth.token.email);
+    }
+
+    // ==========================================
+    // CORE COLLECTIONS (Frontend/E-commerce)
+    // ==========================================
+    
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+        request.auth.token.email == 'wegvivas@gmail.com'
+      );
+      allow delete: if isAdmin() || isSuperAdmin();
+    }
+    
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+    
+    match /orders/{orderId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin() || isSuperAdmin();
+      allow create: if false; // Created via backend webhooks
+      allow update: if isAdmin() || isSuperAdmin();
+    }
+    
+    match /subscriptions/{subscriptionId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin() || isSuperAdmin();
+      allow write: if false; // Managed via Stripe webhooks
+    }
+    
+    match /blogPosts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+    
+    match /contactSubmissions/{submissionId} {
+      allow create: if true;
+      allow read: if isAdmin() || isSuperAdmin();
+      allow update, delete: if isAdmin() || isSuperAdmin();
+    }
+
+    // ==========================================
+    // SAAS & BOT COLLECTIONS (Backoffice)
+    // ==========================================
+    
+    match /tenants/{tenantId} {
+      allow read: if isTenantAdmin(tenantId);
+      allow write: if isSuperAdmin();
+
+      // Services (Bots) sub-collection (formerly 'bots' in root rules)
+      match /services/{serviceId} {
+        allow read, write: if isTenantAdmin(tenantId);
+
+        // Chat History for this specific bot/service
+        match /chats/{chatId} {
+          allow read, write: if isTenantAdmin(tenantId);
+          
+          match /messages/{messageId} {
+            allow read, write: if isTenantAdmin(tenantId);
+          }
+        }
+      }
+    }
+
+    // Legacy Bot Configs (keeping for backward compatibility)
+    match /botConfigs/{configId} {
+      allow read, write: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isSuperAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+    
+    match /analytics/{docId} {
+      allow read: if isAdmin() || isSuperAdmin();
+      allow write: if false;
+    }
+  }
+}

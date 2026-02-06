@@ -1,0 +1,33 @@
+{
+    "name": "softfawer-gateway",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "WhatsApp Gateway for SoftFawer - Connects WhatsApp to bot handlers",
+    "main": "dist/server.js",
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "build": "tsc",
+        "start": "node dist/server.js",
+        "lint": "eslint src --ext .ts"
+    },
+    "dependencies": {
+        "@whiskeysockets/baileys": "^6.7.16",
+        "fastify": "^5.2.1",
+        "@fastify/cors": "^10.0.2",
+        "@fastify/websocket": "^11.0.2",
+        "firebase-admin": "^13.0.2",
+        "pino": "^9.6.0",
+        "pino-pretty": "^13.0.0",
+        "qrcode": "^1.5.4",
+        "dotenv": "^16.4.7"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.7",
+        "@types/qrcode": "^1.5.5",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.3"
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    }
+}
